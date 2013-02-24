@@ -8,6 +8,8 @@ class PasswordProtectComponent extends Component {
 	private $__sessionName = 'PasswordProtect';
 	private $__passEncrypted;
 	
+	private $__renderingPasswordForm = false;
+	
 	function __construct(ComponentCollection $collection, $settings = array()) {
 		parent::__construct($collection, $settings);
 		$this->settings = array_merge(array(
@@ -23,9 +25,11 @@ class PasswordProtectComponent extends Component {
 	function startup(Controller $controller) {
 		if (!empty($controller->request->data['PasswordProtect']['pass'])) {
 			$data = $controller->request->data['PasswordProtect'];
-			if ($this->_encrypt($data['pass']) == $this->__passEncrypted) {
+			$dataPassEncrypted = $this->_encrypt($data['pass']);
+			if ($dataPassEncrypted == $this->__passEncrypted) {
 				$redirect = !empty($data['redirect']) ? $data['redirect'] : $this->settings['defualtUrl'];
-				//$this->set($controller);
+				$this->set($dataPassEncrypted);
+				$this->Session->setFlash('Successfully entered password.');
 				$controller->redirect($redirect);
 			} else {
 				$this->Session->setFlash('Incorrect Password');
@@ -37,21 +41,20 @@ class PasswordProtectComponent extends Component {
 			$controller->redirect($this->settings['logout']);
 		}
 		$controller->set('hasPassword', $this->check());
-		parent::startup($controller);
-	}
-	
-	function beforeRender(Controller $controller) {
+
 		if ($this->_needsPassword($controller) && !$this->check()) {
 			$this->_redirectPasswordRequest($controller);
 		}
-		parent::beforeRender($controller);
+
+		parent::startup($controller);
 	}
+	
 	
 	public function check() {
 		$pass = null;
 		if ($this->Session->check($this->__sessionName)) {
 			$pass = $this->Session->read($this->__sessionName);
-		} else if ($this->Cookie->check($this->__sessionName)) {
+		} else if ($this->Cookie->read($this->__sessionName)) {
 			$pass = $this->Cookie->read($this->__sessionName);
 		}
 		return $pass == $this->__passEncrypted;
@@ -94,9 +97,10 @@ class PasswordProtectComponent extends Component {
 	}
 
 	private function _redirectPasswordRequest($controller) {
-		$element = HOME . DS . 'Plugin' . DS . 'PasswordProtect' . DS;
-		$element .= 'View' . DS . 'Element' . DS . 'form';
-		$this->request->data['PasswordProtect']['redirect'] = $controller->request->here;
+		$element = DS . '..' . DS . 'Plugin' . DS . 'PasswordProtect' . DS;
+		$element .= 'View' . DS . 'Elements' . DS . 'form';
+		$controller->request->data['PasswordProtect']['redirect'] = $controller->request->here;
+		$controller->autoRender = false;
 		return $controller->render($element);
 	}
 }
