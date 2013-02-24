@@ -3,26 +3,29 @@ class PasswordProtectComponent extends Component {
 	var $name = 'PasswordProtect';
 
 	var $controller;
-	var $components = array('Session', 'Cookie');
-	
-	var $loginUrl = array('controller' => 'pages', 'action' => 'display', 'PasswordProtect', 'admin' => false);
-	var $defaultUrl = array('controller' => 'gallery_images', 'action' => 'index', 'admin' => true);
-	var $logoutUrl = '/';
-	
-	var $password = '7089';
+	var $components = array('Session', 'Cookie', 'Security');
 
-	
 	private $__sessionName = 'PasswordProtect';
+	private $__passEncrypted;
+	
+	function __construct(ComponentCollection $collection, $settings = array()) {
+		parent::__construct($collection, $settings);
+		$this->settings = array_merge(array(
+			'password' => 'default_password',
+			'logout' => '/',
+			'defaultUrl' => '/',
+			'require' => array('prefix' => 'admin'),
+		), $settings);
+		
+		$this->__passEncrypted = $this->_encrypt($this->settings['password'], null, true);
+	}
 	
 	function startup(Controller $controller) {
 		if (!empty($controller->request->data['PasswordProtect']['pass'])) {
-			if ($controller->request->data['PasswordProtect']['pass'] == $this->password) {
-				if (!empty($controller->request->data['PasswordProtect']['redirect'])) {
-					$redirect = $controller->request->data['PasswordProtect']['redirect'];
-				} else {
-					$redirect = $this->defaultUrl;
-				}
-				$this->set($controller);
+			$data = $controller->request->data['PasswordProtect'];
+			if ($this->_encrypt($data['pass']) == $this->__passEncrypted) {
+				$redirect = !empty($data['redirect']) ? $data['redirect'] : $this->settings['defualtUrl'];
+				//$this->set($controller);
 				$controller->redirect($redirect);
 			} else {
 				$this->Session->setFlash('Incorrect Password');
@@ -31,11 +34,9 @@ class PasswordProtectComponent extends Component {
 		} else if (!empty($controller->request->query['logout'])) {
 			$this->delete();
 			$this->Session->setFlash('Successfully Logged out');
-			$controller->redirect($this->logoutUrl);
+			$controller->redirect($this->settings['logout']);
 		}
-		
-		$controller->set('passwordSuccess', $this->check());
-		
+		$controller->set('hasPassword', $this->check());
 		parent::startup($controller);
 	}
 	
@@ -47,16 +48,18 @@ class PasswordProtectComponent extends Component {
 	}
 	
 	public function check() {
-		$success = $this->Session->check($this->__sessionName);
-		if (!$success) {
-			$success = $this->Cookie->read($this->__sessionName);
+		$pass = null;
+		if ($this->Session->check($this->__sessionName)) {
+			$pass = $this->Session->read($this->__sessionName);
+		} else if ($this->Cookie->check($this->__sessionName)) {
+			$pass = $this->Cookie->read($this->__sessionName);
 		}
-		return $success;
+		return $pass == $this->__passEncrypted;
 	}
 	
-	private function set() {
-		$this->Session->write($this->__sessionName, true);
-		$this->Cookie->write($this->__sessionName, true);
+	private function set($password) {
+		$this->Session->write($this->__sessionName, $password);
+		$this->Cookie->write($this->__sessionName, $password);
 		return true;
 	}
 	
@@ -67,9 +70,29 @@ class PasswordProtectComponent extends Component {
 	}
 	
 	private function _needsPassword($controller) {
-		return (!empty($controller->request->params['prefix']) && $controller->request->params['prefix'] == 'admin');
+		if (!empty($this->settings['require'])) {
+			if ($this->settings['require'] === true) {
+				return true;
+			}
+			$matched = false;
+			foreach ($this->settings['require'] as $key => $val) {
+				if (isset($controller->request->params[$key])) {
+					$matched = true;
+					if ($controller->request->params[$key] != $val) {
+						return false;
+					}
+				}
+			}
+			if ($matched) {
+				return true;
+			}
+		}
 	}
 	
+	private function _encrypt($phrase) {
+		return Security::hash($phrase, null, true);
+	}
+
 	private function _redirectPasswordRequest($controller) {
 		$element = HOME . DS . 'Plugin' . DS . 'PasswordProtect' . DS;
 		$element .= 'View' . DS . 'Element' . DS . 'form';
