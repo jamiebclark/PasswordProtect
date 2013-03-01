@@ -40,9 +40,10 @@ class PasswordProtectComponent extends Component {
 			$this->Session->setFlash('Successfully Logged out');
 			$controller->redirect($this->settings['logout']);
 		}
-		$controller->set('hasPassword', $this->check());
+		$hasPassword = $this->check();
+		$controller->set(compact('hasPassword'));
 
-		if ($this->_needsPassword($controller) && !$this->check()) {
+		if ($this->_needsPassword($controller) && !$hasPassword) {
 			$this->_redirectPasswordRequest($controller);
 		}
 
