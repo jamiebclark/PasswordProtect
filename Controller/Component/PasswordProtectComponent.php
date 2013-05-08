@@ -46,7 +46,6 @@ class PasswordProtectComponent extends Component {
 		if ($this->_needsPassword($controller) && !$hasPassword) {
 			$this->_redirectPasswordRequest($controller);
 		}
-
 		parent::startup($controller);
 	}
 	
