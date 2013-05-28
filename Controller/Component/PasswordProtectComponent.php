@@ -23,9 +23,11 @@ class PasswordProtectComponent extends Component {
 	}
 	
 	function startup(Controller $controller) {
+		debug($controller->request->data);
 		if (!empty($controller->request->data['PasswordProtect']['pass'])) {
 			$data = $controller->request->data['PasswordProtect'];
 			$dataPassEncrypted = $this->_encrypt($data['pass']);
+			debug($controller->request->data['PasswordProtect']);
 			if ($dataPassEncrypted == $this->__passEncrypted) {
 				$redirect = !empty($data['redirect']) ? $data['redirect'] : $this->settings['defaultUrl'];
 				$this->set($dataPassEncrypted);
