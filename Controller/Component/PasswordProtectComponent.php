@@ -99,8 +99,13 @@ class PasswordProtectComponent extends Component {
 	private function _redirectPasswordRequest($controller) {
 		$element = DS . '..' . DS . 'Plugin' . DS . 'PasswordProtect' . DS;
 		$element .= 'View' . DS . 'Elements' . DS . 'form';
-		$controller->request->data['PasswordProtect']['redirect'] = $controller->request->here;
+
+		$controller->request->data['PasswordProtect']['redirect'] = $this->_getRelativeHere($controller);
 		$controller->autoRender = false;
 		return $controller->render($element);
+	}
+	
+	private function _getRelativeHere($controller) {
+		return substr($controller->request->here, strlen($controller->request->base));
 	}
 }
