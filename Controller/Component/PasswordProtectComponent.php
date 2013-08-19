@@ -42,6 +42,7 @@ class PasswordProtectComponent extends Component {
 		}
 		$hasPassword = $this->check();
 		$controller->set(compact('hasPassword'));
+		$controller->set('passwordUrl', $this->settings['defaultUrl']);
 
 		if ($this->_needsPassword($controller) && !$hasPassword) {
 			$this->_redirectPasswordRequest($controller);
