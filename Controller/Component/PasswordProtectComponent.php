@@ -1,4 +1,6 @@
 <?php
+App::uses('Security', 'Utility');
+
 class PasswordProtectComponent extends Component {
 	var $name = 'PasswordProtect';
 
