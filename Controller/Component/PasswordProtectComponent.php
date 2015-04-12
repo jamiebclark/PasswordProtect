@@ -1,47 +1,92 @@
 <?php
+/**
+ * Component for password protecting a section of your website
+ *
+ * This can be used if you don't need something as complicated as maintaining a user and password database, 
+ * but rather simply maintain one master password for access to the admin sections of the site
+ *
+ **/
+
 App::uses('Security', 'Utility');
 
 class PasswordProtectComponent extends Component {
-	var $name = 'PasswordProtect';
+	public $name = 'PasswordProtect';
 
-	var $controller;
-	var $components = array('Session', 'Cookie', 'Security');
+	public $controller;
+	public $settings;
 
-	private $__sessionName = 'PasswordProtect';
-	private $__passEncrypted;
+	public $components = array('Session', 'Cookie', 'Security');
+
+	const SESSION_NAME = 'PasswordProtect';
+
+/**
+ * Stores the encrypted password data
+ *
+ * @var string
+ **/
+	private $_passEncrypted;
+
+/**
+ * Set to true if currently rendering the password form
+ *
+ * @var bool
+ **/
+	private $_renderingPasswordForm = false;
 	
-	private $__renderingPasswordForm = false;
-	
-	function __construct(ComponentCollection $collection, $settings = array()) {
+/** 
+ * Assign the component settings
+ *
+ * - 'password': The master password for the application
+ * - 'logoutUrl': The url to log the user out of the password session
+ * - 'logoutMsg': The message to display when logging out
+ * - 'defaultUrl': 
+ * - 'require': The rules for when a password is required
+ * 		- 'prefix': Include any prefixes
+ *
+ * @param ComponentCollection $collection The collection of controller components
+ * @param array $settings The user-specified settings
+ * @return void;
+ **/
+	public function __construct(ComponentCollection $collection, $settings = array()) {
 		parent::__construct($collection, $settings);
-		$this->settings = array_merge(array(
+		
+		// Default Settings
+		$default = array(
 			'password' => 'default_password',
-			'logout' => '/',
+			'logoutUrl' => '/',
+			'logoutMsg' => 'Successfully Logged out',
+
+			'successMsg' => 'Successfully entered password.',
+			'failMsg' => 'Incorrect Password',
+
 			'defaultUrl' => '/',
 			'require' => array('prefix' => 'admin'),
-		), $settings);
+		);
+		$this->settings = array_merge($default, $settings);
 		
-		$this->__passEncrypted = $this->_encrypt($this->settings['password'], null, true);
+		// Stores the encrypted version of the password
+		$this->_passEncrypted = $this->_encrypt($this->settings['password'], null, true);
 	}
 	
-	function startup(Controller $controller) {
+	public function startup(Controller $controller) {
 		if (!empty($controller->request->data['PasswordProtect']['pass'])) {
 			$data = $controller->request->data['PasswordProtect'];
 			$dataPassEncrypted = $this->_encrypt($data['pass']);
-			if ($dataPassEncrypted == $this->__passEncrypted) {
+			if ($dataPassEncrypted == $this->_passEncrypted) {
 				$redirect = !empty($data['redirect']) ? $data['redirect'] : $this->settings['defaultUrl'];
 				$this->set($dataPassEncrypted);
-				$this->Session->setFlash('Successfully entered password.');
+				$this->Session->setFlash($this->settings['successMsg']);
 				$controller->redirect($redirect);
 			} else {
-				$this->Session->setFlash('Incorrect Password');
+				$this->Session->setFlash($this->settings['failMsg']);
 				$this->_redirectPasswordRequest($controller);
 			}
-		} else if (!empty($controller->request->query['logout'])) {
+		} else if (!empty($controller->request->query['logoutUrl'])) {
 			$this->delete();
-			$this->Session->setFlash('Successfully Logged out');
-			$controller->redirect($this->settings['logout']);
+			$this->Session->setFlash($this->settings['logoutMsg']);
+			$controller->redirect($this->settings['logoutUrl']);
 		}
+
 		$hasPassword = $this->check();
 		$controller->set(compact('hasPassword'));
 		$controller->set('passwordUrl', $this->settings['defaultUrl']);
@@ -52,26 +97,26 @@ class PasswordProtectComponent extends Component {
 		parent::startup($controller);
 	}
 	
-	
+	// Session Values
 	public function check() {
 		$pass = null;
-		if ($this->Session->check($this->__sessionName)) {
-			$pass = $this->Session->read($this->__sessionName);
-		} else if ($this->Cookie->read($this->__sessionName)) {
-			$pass = $this->Cookie->read($this->__sessionName);
+		if ($this->Session->check(self::SESSION_NAME)) {
+			$pass = $this->Session->read(self::SESSION_NAME);
+		} else if ($this->Cookie->read(self::SESSION_NAME)) {
+			$pass = $this->Cookie->read(self::SESSION_NAME);
 		}
-		return $pass == $this->__passEncrypted;
+		return $pass == $this->_passEncrypted;
 	}
 	
 	private function set($password) {
-		$this->Session->write($this->__sessionName, $password);
-		$this->Cookie->write($this->__sessionName, $password);
+		$this->Session->write(self::SESSION_NAME, $password);
+		$this->Cookie->write(self::SESSION_NAME, $password);
 		return true;
 	}
 	
 	private function delete() {
-		$this->Session->delete($this->__sessionName);
-		$this->Cookie->delete($this->__sessionName);
+		$this->Session->delete(self::SESSION_NAME);
+		$this->Cookie->delete(self::SESSION_NAME);
 		return true;
 	}
 	
