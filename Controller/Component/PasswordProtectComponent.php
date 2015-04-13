@@ -65,21 +65,33 @@ class PasswordProtectComponent extends Component {
 		$this->settings = array_merge($default, $settings);
 		
 		// Stores the encrypted version of the password
-		$this->_passEncrypted = $this->_encrypt($this->settings['password'], null, true);
+		$this->_passEncrypted = $this->_encrypt($this->settings['password']);
 	}
 	
 	public function startup(Controller $controller) {
+		$this->controller = $controller;
 		if (!empty($controller->request->data['PasswordProtect']['pass'])) {
 			$data = $controller->request->data['PasswordProtect'];
+			$redirect = null;
+			if (!empty($data['redirect'])) {
+				$redirect = $data['redirect'];
+				if ($decodedRedirect = base64_decode($redirect)) {
+					$redirect = $decodedRedirect;
+				}
+			}
 			$dataPassEncrypted = $this->_encrypt($data['pass']);
+
 			if ($dataPassEncrypted == $this->_passEncrypted) {
-				$redirect = !empty($data['redirect']) ? $data['redirect'] : $this->settings['defaultUrl'];
+				if (empty($redirect)) {
+					$redirect = $this->settings['defaultUrl'];
+				}
+
 				$this->set($dataPassEncrypted);
 				$this->Session->setFlash($this->settings['successMsg']);
 				$controller->redirect($redirect);
 			} else {
 				$this->Session->setFlash($this->settings['failMsg']);
-				$this->_redirectPasswordRequest($controller);
+				$this->redirectPasswordRequest($data['redirect']);
 			}
 		} else if (!empty($controller->request->query['logout'])) {
 			$this->delete();
@@ -92,11 +104,39 @@ class PasswordProtectComponent extends Component {
 		$controller->set('passwordUrl', $this->settings['defaultUrl']);
 
 		if ($this->_needsPassword($controller) && !$hasPassword) {
-			$this->_redirectPasswordRequest($controller);
+			$this->redirectPasswordRequest();
 		}
 		parent::startup($controller);
 	}
-	
+
+	public function redirectPasswordRequest($redirect = null) {
+		if (empty($redirect)) {
+			$redirect = $this->_getRelativeHere();
+		}
+		$redirectUrl = array(
+			'controller' => 'password_pages',
+			'action' => 'request',
+			'plugin' => 'password_protect',
+			
+			'?' => array('redirect' => base64_encode($redirect))
+		);
+		if (!empty($this->controller->request->params['prefix'])) {
+			$redirectUrl[$this->controller->request->params['prefix']] = false;
+		}
+		$this->controller->redirect($redirectUrl);
+	}
+
+	public function renderPasswordRequest() {
+		$controller = $this->controller;
+
+		$element = DS . '..' . DS . 'Plugin' . DS . 'PasswordProtect' . DS;
+		$element .= 'View' . DS . 'Elements' . DS . 'form';
+
+		// $controller->request->data['PasswordProtect']['redirect'] = $this->_getRelativeHere();
+		$controller->autoRender = false;
+		return $controller->render($element);
+	}
+
 	// Session Values
 	public function check() {
 		$pass = null;
@@ -144,16 +184,7 @@ class PasswordProtectComponent extends Component {
 		return Security::hash($phrase, null, true);
 	}
 
-	private function _redirectPasswordRequest($controller) {
-		$element = DS . '..' . DS . 'Plugin' . DS . 'PasswordProtect' . DS;
-		$element .= 'View' . DS . 'Elements' . DS . 'form';
-
-		$controller->request->data['PasswordProtect']['redirect'] = $this->_getRelativeHere($controller);
-		$controller->autoRender = false;
-		return $controller->render($element);
-	}
-	
-	private function _getRelativeHere($controller) {
-		return substr($controller->request->here, strlen($controller->request->base));
+	private function _getRelativeHere() {
+		return substr($this->controller->request->here, strlen($this->controller->request->base));
 	}
 }
