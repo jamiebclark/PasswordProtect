@@ -81,7 +81,7 @@ class PasswordProtectComponent extends Component {
 				$this->Session->setFlash($this->settings['failMsg']);
 				$this->_redirectPasswordRequest($controller);
 			}
-		} else if (!empty($controller->request->query['logoutUrl'])) {
+		} else if (!empty($controller->request->query['logout'])) {
 			$this->delete();
 			$this->Session->setFlash($this->settings['logoutMsg']);
 			$controller->redirect($this->settings['logoutUrl']);
